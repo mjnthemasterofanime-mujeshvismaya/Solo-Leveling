@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { FullPlayerState, NavSection } from '../types/system';
 import { SystemFrame } from './SystemFrame';
-import { TITLES_CATALOG } from '../shared/systemData';
+import { TITLES_CATALOG, formatMissionTarget } from '../shared/systemData';
 import { soundEngine } from '../lib/sound';
 
 interface DashboardViewProps {
@@ -285,7 +285,7 @@ export function DashboardView({
                         {m.exerciseName}
                       </span>
                       <span className="font-mono-tabular text-xs text-[#CBD5E1]">
-                        {m.completedAmount} / {m.target} {m.unit}
+                        {m.completedAmount} / {formatMissionTarget(m.exerciseKey, m.target, m.unit)}
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 w-full bg-[#050A13]">

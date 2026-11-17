@@ -20,7 +20,7 @@ export function HistoryView({ state }: HistoryViewProps) {
     { label: 'Total Lunges', value: status.totalLunges.toLocaleString() },
     { label: 'Total Pull-Ups', value: status.totalPullups.toLocaleString() },
     { label: 'Plank Duration', value: `${status.totalPlankSeconds} sec` },
-    { label: 'Running Distance', value: `${status.totalRunningKm.toFixed(1)} km` },
+    { label: 'Superman Hold', value: `${status.totalSupermanSeconds} sec` },
     { label: 'Completed Quests', value: String(status.completedQuestsCount) },
     { label: 'Highest Level', value: `Lv.${status.highestLevel}` },
     { label: 'Highest Streak', value: `${status.highestStreak} days` },

@@ -89,7 +89,7 @@ export const fitnessProfiles = pgTable('fitness_profiles', {
   equipment: jsonb('equipment').$type<string[]>().default([]).notNull(),
   exerciseCapabilities: jsonb('exercise_capabilities').$type<Record<string, number>>().default({}).notNull(),
   limitations: text('limitations').default('').notNull(),
-  adaptiveDifficulty: text('adaptive_difficulty').default('adaptive').notNull(),
+  adaptiveDifficulty: text('adaptive_difficulty').default('classic').notNull(),
   recoveryMode: boolean('recovery_mode').default(false).notNull(),
   customTargets: jsonb('custom_targets').$type<Record<string, number>>().default({}).notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -102,7 +102,7 @@ export const dailyQuests = pgTable('daily_quests', {
     .notNull(),
   questDate: text('quest_date').notNull(),
   title: text('title').default('PREPARATION TO BECOME POWERFUL').notNull(),
-  difficultyMode: text('difficulty_mode').default('adaptive').notNull(),
+  difficultyMode: text('difficulty_mode').default('classic').notNull(),
   status: text('status').default('active').notNull(), // active | completed | failed | recovery
   deadline: timestamp('deadline').notNull(),
   completionPercentage: integer('completion_percentage').default(0).notNull(),

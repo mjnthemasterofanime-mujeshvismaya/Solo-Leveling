@@ -19,13 +19,12 @@ import {
 import {
   ACHIEVEMENTS_CATALOG,
   computeAdaptiveTargets,
-  computeHunterRankScore,
   DAILY_EXERCISES,
   DifficultyMode,
   EMERGENCY_QUEST_TEMPLATES,
   ExerciseKey,
   expRequiredForLevel,
-  getHunterRankForScore,
+  getHunterRankForLevel,
   ITEMS_CATALOG,
   MAIN_QUEST_TEMPLATES,
   rollLootBox,
@@ -95,6 +94,8 @@ async function applyExpAndLevelUps(userId: number, gainedExp: number) {
   }
 
   const highestLevel = Math.max(status.highestLevel, level);
+  const newRankTier = getHunterRankForLevel(level);
+  const rankChanged = newRankTier.rank !== status.hunterRank;
 
   await db
     .update(playerStatus)
@@ -102,6 +103,7 @@ async function applyExpAndLevelUps(userId: number, gainedExp: number) {
       level,
       exp,
       totalExp,
+      hunterRank: newRankTier.rank,
       availableStatPoints,
       strength,
       stamina,
@@ -123,6 +125,20 @@ async function applyExpAndLevelUps(userId: number, gainedExp: number) {
       `You have reached Level ${level}. Base attributes increased (+1 each) and +3 Stat Points granted.`,
       'gold'
     );
+  }
+
+  if (rankChanged) {
+    await addNotification(
+      userId,
+      'RANK_UP',
+      `HUNTER RANK PROMOTION: ${newRankTier.rank}`,
+      `You have ascended to ${newRankTier.rank} (${newRankTier.title}) at Level ${level}.`,
+      'gold'
+    );
+
+    if (['C-RANK', 'B-RANK', 'A-RANK', 'S-RANK'].includes(newRankTier.rank)) {
+      await grantTitleIfMissing(userId, 'shadow_hunter');
+    }
   }
 
   return { leveledUp, newLevel: level };
@@ -225,10 +241,6 @@ async function syncHunterRankAndMilestones(userId: number) {
     await grantAchievementIfMissing(userId, 'pushups_1000');
     await grantTitleIfMissing(userId, 'iron_body');
   }
-  if (status.totalRunningKm >= 50) {
-    await grantAchievementIfMissing(userId, 'running_50km');
-    await grantTitleIfMissing(userId, 'wolf_slayer');
-  }
   if (status.completedQuestsCount >= 15) {
     await grantTitleIfMissing(userId, 'elite_hunter');
   }
@@ -237,27 +249,14 @@ async function syncHunterRankAndMilestones(userId: number) {
     await grantTitleIfMissing(userId, 'the_unbreakable');
   }
 
-  // Re-fetch achievements count & status
+  // Re-fetch status after milestone achievements
   const updatedStatus = await db.query.playerStatus.findFirst({
     where: eq(playerStatus.userId, userId),
   });
-  const userAchievements = await db
-    .select()
-    .from(achievements)
-    .where(eq(achievements.userId, userId));
 
   if (!updatedStatus) return;
 
-  const score = computeHunterRankScore({
-    completedQuestsCount: updatedStatus.completedQuestsCount,
-    highestStreak: updatedStatus.highestStreak,
-    totalPushups: updatedStatus.totalPushups,
-    totalRunningKm: updatedStatus.totalRunningKm,
-    achievementsCount: userAchievements.length,
-    jobChangeCompleted: updatedStatus.jobChangeCompleted,
-  });
-
-  const newRankTier = getHunterRankForScore(score);
+  const newRankTier = getHunterRankForLevel(updatedStatus.level);
   if (newRankTier.rank !== updatedStatus.hunterRank) {
     await db
       .update(playerStatus)
@@ -287,7 +286,6 @@ async function syncHunterRankAndMilestones(userId: number) {
     if (sq.status === 'claimed') continue;
     let currentProgress = sq.progressValue;
     if (sq.targetMetric === 'totalPushups') currentProgress = updatedStatus.totalPushups;
-    else if (sq.targetMetric === 'totalRunningKm') currentProgress = updatedStatus.totalRunningKm;
     else if (sq.targetMetric === 'totalSquats') currentProgress = updatedStatus.totalSquats;
     else if (sq.targetMetric === 'totalPullups') currentProgress = updatedStatus.totalPullups;
 
@@ -387,7 +385,7 @@ export async function ensureDailyQuest(userId: number) {
   }
 
   // Create today's new Daily Quest
-  const mode = (fitness.adaptiveDifficulty || 'adaptive') as DifficultyMode;
+  const mode = (fitness.adaptiveDifficulty || 'classic') as DifficultyMode;
   const adaptiveTargets = computeAdaptiveTargets({
     experienceLevel: fitness.experienceLevel,
     level: status.level,
@@ -439,7 +437,7 @@ export async function ensureDailyQuest(userId: number) {
     userId,
     'DAILY_QUEST_ARRIVAL',
     'DAILY QUEST ARRIVED',
-    '[Daily Quest: Strength Training has arrived.] Complete all 8 missions before the 24-hour deadline.',
+    '[Daily Quest: Strength Training has arrived.] Complete all 7 missions before the 24-hour deadline.',
     'info'
   );
 
@@ -462,6 +460,41 @@ export async function getFullPlayerState(userId: number) {
       .limit(2);
 
     const activeQuest = quests[0] || null;
+    if (activeQuest) {
+      // Remove any legacy running mission from active Daily Quests and recalculate completion
+      const removed = await db
+        .delete(questMissions)
+        .where(and(eq(questMissions.questId, activeQuest.id), eq(questMissions.exerciseKey, 'running')))
+        .returning();
+      if (removed.length > 0) {
+        const remainingMissions = await db
+          .select()
+          .from(questMissions)
+          .where(eq(questMissions.questId, activeQuest.id));
+        const pct =
+          remainingMissions.length > 0
+            ? Math.round(
+                (remainingMissions.reduce(
+                  (sum, m) => sum + Math.min(1, m.completedAmount / Math.max(0.01, m.target)),
+                  0
+                ) /
+                  remainingMissions.length) *
+                  100
+              )
+            : 0;
+        const done = remainingMissions.length > 0 && remainingMissions.every((m) => m.completedAmount >= m.target);
+        await db
+          .update(dailyQuests)
+          .set({
+            completionPercentage: pct,
+            status: done ? 'completed' : activeQuest.status === 'failed' ? 'failed' : 'active',
+          })
+          .where(eq(dailyQuests.id, activeQuest.id));
+        activeQuest.completionPercentage = pct;
+        if (done) activeQuest.status = 'completed';
+      }
+    }
+
     const missions = activeQuest
       ? await db
           .select()
@@ -469,6 +502,11 @@ export async function getFullPlayerState(userId: number) {
           .where(eq(questMissions.questId, activeQuest.id))
           .orderBy(questMissions.id)
       : [];
+
+    // Remove legacy 50km running main quest if present
+    await db
+      .delete(specialQuests)
+      .where(and(eq(specialQuests.userId, userId), eq(specialQuests.questKey, 'main_50km_running')));
 
     const userInventory = await db.select().from(inventory).where(eq(inventory.userId, userId));
     const userAchievements = await db.select().from(achievements).where(eq(achievements.userId, userId));
@@ -498,24 +536,25 @@ export async function getFullPlayerState(userId: number) {
       .orderBy(desc(rewards.createdAt))
       .limit(25);
 
-    const rankScore = status
-      ? computeHunterRankScore({
-          completedQuestsCount: status.completedQuestsCount,
-          highestStreak: status.highestStreak,
-          totalPushups: status.totalPushups,
-          totalRunningKm: status.totalRunningKm,
-          achievementsCount: userAchievements.length,
-          jobChangeCompleted: status.jobChangeCompleted,
-        })
-      : 0;
+    let syncedRank = status?.hunterRank || 'E-RANK';
+    if (status) {
+      const expectedRank = getHunterRankForLevel(status.level).rank;
+      if (status.hunterRank !== expectedRank) {
+        syncedRank = expectedRank;
+        await db
+          .update(playerStatus)
+          .set({ hunterRank: expectedRank, updatedAt: new Date() })
+          .where(eq(playerStatus.userId, userId));
+      }
+    }
 
     return {
       profile,
       status: status
         ? {
             ...status,
+            hunterRank: syncedRank,
             nextLevelExp: expRequiredForLevel(status.level),
-            rankScore,
           }
         : null,
       fitnessProfile: fitness,
@@ -574,10 +613,21 @@ export async function completeOnboarding(
         equipment: input.equipment || [],
         exerciseCapabilities: input.exerciseCapabilities || {},
         limitations: input.limitations || '',
-        adaptiveDifficulty: 'adaptive',
+        adaptiveDifficulty: 'classic',
         updatedAt: new Date(),
       })
       .where(eq(fitnessProfiles.userId, userId));
+
+    const existingTodayQuest = await db
+      .select()
+      .from(dailyQuests)
+      .where(eq(dailyQuests.userId, userId))
+      .orderBy(desc(dailyQuests.createdAt))
+      .limit(1);
+
+    if (existingTodayQuest[0]) {
+      await switchDifficultyMode(userId, existingTodayQuest[0].id, 'classic');
+    }
 
     await grantAchievementIfMissing(userId, 'first_awakening');
     await grantTitleIfMissing(userId, 'the_awakened');
@@ -585,7 +635,7 @@ export async function completeOnboarding(
       userId,
       'PLAYER_REGISTRATION',
       'PLAYER REGISTRATION COMPLETE',
-      'Status Window unlocked. Your personalized Daily Quest has been calibrated.',
+      'Status Window unlocked. Your Daily Quest targets are active.',
       'info'
     );
 
@@ -659,7 +709,6 @@ export async function logMissionProgress(
       if (ex === 'pullups') updates.totalPullups = status.totalPullups + Math.round(amount);
       if (ex === 'plank') updates.totalPlankSeconds = status.totalPlankSeconds + Math.round(amount);
       if (ex === 'superman') updates.totalSupermanSeconds = status.totalSupermanSeconds + Math.round(amount);
-      if (ex === 'running') updates.totalRunningKm = Number((status.totalRunningKm + amount).toFixed(2));
 
       await db.update(playerStatus).set(updates).where(eq(playerStatus.userId, userId));
     }
@@ -668,7 +717,7 @@ export async function logMissionProgress(
       await applyExpAndLevelUps(userId, xpAwarded);
     }
 
-    // Recompute completion percentage across all 8 missions
+    // Recompute completion percentage across all active daily missions
     const allMissions = await db
       .select()
       .from(questMissions)
@@ -694,7 +743,7 @@ export async function logMissionProgress(
         userId,
         'QUEST_COMPLETED',
         'DAILY QUEST COMPLETE',
-        '[CONGRATULATIONS, PLAYER.] All 8 Daily Quest objectives satisfied. Claim your rewards.',
+        '[CONGRATULATIONS, PLAYER.] All Daily Quest objectives satisfied. Claim your rewards.',
         'gold'
       );
     }
@@ -731,6 +780,7 @@ export async function claimDailyQuestRewards(userId: number, questId: number) {
       const highestStreak = Math.max(status.highestStreak, newStreak);
       const bonusGold = 120;
       const bonusStatPoints = 3;
+      const bonusExp = getHunterRankForLevel(status.level).dailyQuestBonusExp;
 
       await tx
         .update(playerStatus)
@@ -757,7 +807,7 @@ export async function claimDailyQuestRewards(userId: number, questId: number) {
         {
           userId,
           rewardType: 'STAT_POINTS',
-          rewardValue: '+3 Distributable Stat Points',
+          rewardValue: `+3 Distributable Stat Points · +${bonusExp} Bonus EXP`,
           sourceQuestId: questId,
         },
         {
@@ -773,22 +823,22 @@ export async function claimDailyQuestRewards(userId: number, questId: number) {
         questId,
         questDate: quest.questDate,
         finalStatus: 'completed',
-        expEarned: 100,
+        expEarned: bonusExp,
         goldEarned: bonusGold,
         completionPercentage: 100,
         streakAtTime: newStreak,
       });
 
-      return { bonusGold, bonusStatPoints };
+      return { bonusGold, bonusStatPoints, bonusExp };
     });
 
     await addItemToInventory(userId, 'random_loot_box', 1);
-    await applyExpAndLevelUps(userId, 100);
+    await applyExpAndLevelUps(userId, result.bonusExp);
     await addNotification(
       userId,
       'REWARD_RECEIVED',
       'DAILY QUEST REWARDS RECEIVED',
-      'Status Recovery applied · +3 Stat Points · +100 Bonus EXP · +120 Gold · System Supply Box added to Inventory.',
+      `Status Recovery applied · +3 Stat Points · +${result.bonusExp} Bonus EXP · +120 Gold · System Supply Box added to Inventory.`,
       'gold'
     );
     await syncHunterRankAndMilestones(userId);

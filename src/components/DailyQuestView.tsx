@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { FullPlayerState, NavSection, QuestMission } from '../types/system';
 import { SystemFrame } from './SystemFrame';
-import { DAILY_EXERCISES, DifficultyMode } from '../shared/systemData';
+import { DAILY_EXERCISES, DifficultyMode, formatMissionTarget, getHunterRankForLevel } from '../shared/systemData';
 import { useCountdown } from './DashboardView';
 import { soundEngine } from '../lib/sound';
 
@@ -26,7 +26,7 @@ interface DailyQuestViewProps {
   busy: boolean;
   offlineQueuedCount: number;
   onLogProgress: (questId: number, missionId: number, amount: number) => Promise<void>;
-  onClaimRewards: (questId: number) => Promise<void>;
+  onClaimRewards: (questId: number) => Promise<number | null>;
   onChangeDifficulty: (questId: number, mode: DifficultyMode, customTargets?: Record<string, number>) => Promise<void>;
   onToggleRecovery: (questId: number, enabled: boolean) => Promise<void>;
   onTriggerPenalty: (questId: number) => Promise<void>;
@@ -60,6 +60,9 @@ export function DailyQuestView({
   // Reward Sequence Modal
   const [rewardModalOpen, setRewardModalOpen] = useState(false);
   const [rewardStep, setRewardStep] = useState<0 | 1 | 2 | 3>(0);
+  const [claimedBonusExp, setClaimedBonusExp] = useState<number>(
+    getHunterRankForLevel(state.status.level).dailyQuestBonusExp
+  );
 
   // Penalty Zone Presentation Modal
   const [penaltyOpen, setPenaltyOpen] = useState(false);
@@ -106,9 +109,12 @@ export function DailyQuestView({
 
   const handleRewardClaim = async () => {
     soundEngine.playQuestComplete();
-    await onClaimRewards(dailyQuest.id);
-    setRewardModalOpen(true);
-    setRewardStep(1);
+    const awardedExp = await onClaimRewards(dailyQuest.id);
+    if (awardedExp !== null) {
+      setClaimedBonusExp(awardedExp);
+      setRewardModalOpen(true);
+      setRewardStep(1);
+    }
   };
 
   const missedMissions = dailyQuest.missions.filter((m) => m.completedAmount < m.target);
@@ -309,7 +315,7 @@ export function DailyQuestView({
         </SystemFrame>
       )}
 
-      {/* 8 Daily Quest Missions Grid */}
+      {/* Daily Quest Missions Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {dailyQuest.missions.map((mission) => {
           const exMeta = DAILY_EXERCISES.find((e) => e.key === mission.exerciseKey);
@@ -335,7 +341,14 @@ export function DailyQuestView({
                     )}
                   </div>
                   <p className="mt-1 font-mono-tabular text-xs text-[#94A3B8]">
-                    Completed: <span className="text-[#F8FAFC]">{mission.completedAmount}</span> / {mission.target} {mission.unit} · Remaining: <span className="text-[#67E8F9]">{remaining} {mission.unit}</span>
+                    Completed: <span className="text-[#F8FAFC]">{mission.completedAmount}</span> /{' '}
+                    <span className="text-[#F8FAFC]">
+                      {formatMissionTarget(mission.exerciseKey, mission.target, mission.unit)}
+                    </span>{' '}
+                    · Remaining:{' '}
+                    <span className="text-[#67E8F9]">
+                      {remaining} {mission.unit}
+                    </span>
                   </p>
                 </div>
 
@@ -548,7 +561,7 @@ export function DailyQuestView({
                     className="border border-[#38BDF8]/50 bg-[#38BDF8]/10 p-4 text-left"
                   >
                     <p className="text-xs font-bold tracking-wider text-[#67E8F9]">
-                      REWARD 2 · +3 STAT POINTS &amp; +100 BONUS EXP
+                      REWARD 2 · +3 STAT POINTS &amp; +{claimedBonusExp} BONUS EXP
                     </p>
                     <p className="mt-1 text-sm text-[#F8FAFC]">
                       Allocate your 3 new Stat Points in the Status Window alongside +120 Gold.

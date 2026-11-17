@@ -27,7 +27,6 @@ export interface PlayerStatus {
   nextLevelExp: number;
   gold: number;
   hunterRank: HunterRank;
-  rankScore: number;
   job: string;
   availableStatPoints: number;
   strength: number;

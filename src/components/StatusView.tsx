@@ -23,18 +23,10 @@ export function StatusView({ state, busy, onAllocateStat }: StatusViewProps) {
   const currentRankTier = HUNTER_RANKS[Math.max(0, currentRankIndex)];
   const nextRankTier = HUNTER_RANKS[currentRankIndex + 1] || null;
 
+  const rankSpan = nextRankTier ? Math.max(1, nextRankTier.minLevel - currentRankTier.minLevel) : 25;
+  const levelsIntoRank = Math.max(0, status.level - currentRankTier.minLevel);
   const rankProgressPct = nextRankTier
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          Math.round(
-            ((status.rankScore - currentRankTier.minScore) /
-              Math.max(1, nextRankTier.minScore - currentRankTier.minScore)) *
-              100
-          )
-        )
-      )
+    ? Math.min(100, Math.max(0, Math.round((levelsIntoRank / rankSpan) * 100)))
     : 100;
 
   const expPct = Math.min(100, Math.round((status.exp / Math.max(1, status.nextLevelExp)) * 100));
@@ -124,14 +116,14 @@ export function StatusView({ state, busy, onAllocateStat }: StatusViewProps) {
               </div>
             </div>
 
-            {/* Hunter Rank Progression Bar (Separate from Level) */}
+            {/* Hunter Rank Progression Bar (25 Levels per Rank) */}
             <div>
               <div className="flex justify-between text-xs">
                 <span className="text-[#94A3B8]">
                   Hunter Rank Progression · {currentRankTier.title}
                 </span>
                 <span className="font-mono-tabular text-[#FACC15]">
-                  {nextRankTier ? `${status.rankScore} / ${nextRankTier.minScore} -> ${nextRankTier.rank}` : 'MAX RANK'}
+                  {nextRankTier ? `Lv ${status.level} / ${nextRankTier.minLevel} -> ${nextRankTier.rank}` : 'MAX RANK (Lv 126+)'}
                 </span>
               </div>
               <div className="mt-1.5 h-2 w-full bg-[#050A13] border border-[#2879B7]/40">
@@ -234,9 +226,9 @@ export function StatusView({ state, busy, onAllocateStat }: StatusViewProps) {
             </p>
           </div>
           <div className="border border-[#2879B7]/30 bg-[#050A13]/60 p-4">
-            <p className="text-xs text-[#94A3B8]">Lifetime Running</p>
+            <p className="text-xs text-[#94A3B8]">Lifetime Sit-Ups</p>
             <p className="mt-1 font-mono-tabular text-xl font-bold text-[#67E8F9]">
-              {status.totalRunningKm.toFixed(1)} km
+              {status.totalSitups.toLocaleString()}
             </p>
           </div>
           <div className="border border-[#2879B7]/30 bg-[#050A13]/60 p-4">

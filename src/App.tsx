@@ -375,14 +375,15 @@ export default function App() {
               onClaimRewards={async (questId) => {
                 setBusy(true);
                 try {
-                  const res = await apiRequest<{ state: FullPlayerState }>(
-                    '/api/player/quest/claim',
-                    'POST',
-                    { questId }
-                  );
+                  const res = await apiRequest<{
+                    state: FullPlayerState;
+                    claimed: { bonusGold: number; bonusStatPoints: number; bonusExp: number };
+                  }>('/api/player/quest/claim', 'POST', { questId });
                   applyNewState(res.state);
+                  return res.claimed?.bonusExp ?? 500;
                 } catch (err: any) {
                   setStateError(err.message);
+                  return null;
                 } finally {
                   setBusy(false);
                 }

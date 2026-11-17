@@ -2,7 +2,6 @@ export type ExerciseKey =
   | 'pushups'
   | 'situps'
   | 'squats'
-  | 'running'
   | 'lunges'
   | 'plank'
   | 'superman'
@@ -48,7 +47,7 @@ export const DAILY_EXERCISES: ExerciseDefinition[] = [
     isOriginal: true,
     instructions: 'Brace abdominals, avoid pulling on your neck, exhale smoothly as you rise. Substitute controlled crunches if lower back feels tight.',
     restGuidance: 'Rest 45–60 seconds between sets.',
-    quickSteps: [10, 20, 25],
+    quickSteps: [10, 25, 50],
     timerSupported: false,
   },
   {
@@ -62,18 +61,6 @@ export const DAILY_EXERCISES: ExerciseDefinition[] = [
     restGuidance: 'Rest 60 seconds between sets of 15–25 repetitions.',
     quickSteps: [10, 20, 25],
     timerSupported: false,
-  },
-  {
-    key: 'running',
-    name: 'Running',
-    unit: 'km',
-    classicTarget: 10,
-    xpPerUnit: 10,
-    isOriginal: true,
-    instructions: 'Maintain a steady conversational pace or brisk walk-jog intervals. Focus on rhythmic breathing and soft foot strikes.',
-    restGuidance: 'Include a 3-minute warm-up walk and cool-down stretch.',
-    quickSteps: [0.5, 1, 2],
-    timerSupported: true,
   },
   {
     key: 'lunges',
@@ -94,7 +81,7 @@ export const DAILY_EXERCISES: ExerciseDefinition[] = [
     classicTarget: 135, // 3 x 45 seconds
     xpPerUnit: 0.1, // 1 XP per 10 seconds
     isOriginal: false,
-    instructions: 'Forearms stacked under shoulders, glutes and core engaged, neutral spine from head to heels. Target 3 sets of 45s (135s total) at Classic tier.',
+    instructions: 'Forearms stacked under shoulders, glutes and core engaged, neutral spine from head to heels. Complete 3 sets of 45 seconds (135s total).',
     restGuidance: 'Rest 45–60 seconds between holds.',
     quickSteps: [15, 30, 45],
     timerSupported: true,
@@ -107,7 +94,7 @@ export const DAILY_EXERCISES: ExerciseDefinition[] = [
     classicTarget: 90, // 3 x 30 seconds
     xpPerUnit: 0.1, // 1 XP per 10 seconds
     isOriginal: false,
-    instructions: 'Lie prone, gently lift chest, arms, and legs off the mat to strengthen posterior chain without straining the lower back. Target 3 × 30s at Classic tier.',
+    instructions: 'Lie prone, gently lift chest, arms, and legs off the mat to strengthen posterior chain without straining the lower back. Complete 3 sets of 30 seconds (90s total).',
     restGuidance: 'Rest 30–45 seconds between holds.',
     quickSteps: [15, 30, 45],
     timerSupported: true,
@@ -122,13 +109,23 @@ export const DAILY_EXERCISES: ExerciseDefinition[] = [
     isOriginal: false,
     instructions: 'Depress shoulder blades first, pull chest toward bar with controlled descent. Assisted band pull-ups, negative reps, or inverted rows count equally.',
     restGuidance: 'Rest 90 seconds between small quality sets (3–6 reps).',
-    quickSteps: [1, 3, 5],
+    quickSteps: [1, 5, 10],
     timerSupported: false,
   },
 ];
 
+export function formatMissionTarget(exerciseKey: string, target: number, unit: string): string {
+  if (exerciseKey === 'plank' && target === 135) {
+    return '3 × 45s (135 sec)';
+  }
+  if (exerciseKey === 'superman' && target === 90) {
+    return '3 × 30s (90 sec)';
+  }
+  return `${target} ${unit}`;
+}
+
 export function expRequiredForLevel(level: number): number {
-  return Math.round(100 + (level - 1) * 85 + Math.pow(Math.max(0, level - 1), 1.45) * 30);
+  return getHunterRankForLevel(level).expPerLevel;
 }
 
 export function computeAdaptiveTargets(params: {
@@ -179,7 +176,7 @@ export function computeAdaptiveTargets(params: {
       if (recoveryMode) target = target * 0.5;
     }
 
-    if (kneeSensitive && (ex.key === 'squats' || ex.key === 'lunges' || ex.key === 'running')) {
+    if (kneeSensitive && (ex.key === 'squats' || ex.key === 'lunges')) {
       target *= 0.65;
     }
     if (shoulderSensitive && (ex.key === 'pushups' || ex.key === 'pullups' || ex.key === 'plank')) {
@@ -207,7 +204,10 @@ export interface RankTier {
   rank: HunterRank;
   title: string;
   description: string;
-  minScore: number; // Achievement milestone score separate from raw level
+  minLevel: number;
+  maxLevel: number | null;
+  expPerLevel: number;
+  dailyQuestBonusExp: number;
   color: string;
 }
 
@@ -215,69 +215,70 @@ export const HUNTER_RANKS: RankTier[] = [
   {
     rank: 'E-RANK',
     title: 'Awakened Initiate',
-    description: 'Newly registered Player inside the System. Building foundational consistency.',
-    minScore: 0,
+    description: 'Levels 1–25 · 1,000 EXP per level · +500 EXP Daily Quest Bonus.',
+    minLevel: 1,
+    maxLevel: 25,
+    expPerLevel: 1000,
+    dailyQuestBonusExp: 500,
     color: '#94A3B8',
   },
   {
     rank: 'D-RANK',
     title: 'Gate Striker',
-    description: 'Demonstrated steady discipline across initial Daily Quests and milestones.',
-    minScore: 150,
+    description: 'Levels 26–50 · 1,500 EXP per level · +500 EXP Daily Quest Bonus.',
+    minLevel: 26,
+    maxLevel: 50,
+    expPerLevel: 1500,
+    dailyQuestBonusExp: 500,
     color: '#38BDF8',
   },
   {
     rank: 'C-RANK',
     title: 'Dungeon Vanguard',
-    description: 'Reliable combatant in sustained conditioning and multi-quest streaks.',
-    minScore: 400,
+    description: 'Levels 51–75 · 2,000 EXP per level · +750 EXP Daily Quest Bonus.',
+    minLevel: 51,
+    maxLevel: 75,
+    expPerLevel: 2000,
+    dailyQuestBonusExp: 750,
     color: '#67E8F9',
   },
   {
     rank: 'B-RANK',
     title: 'Raid Specialist',
-    description: 'High-output Player who has mastered core bodyweight and endurance thresholds.',
-    minScore: 800,
+    description: 'Levels 76–100 · 2,500 EXP per level · +750 EXP Daily Quest Bonus.',
+    minLevel: 76,
+    maxLevel: 100,
+    expPerLevel: 2500,
+    dailyQuestBonusExp: 750,
     color: '#4ADE80',
   },
   {
     rank: 'A-RANK',
     title: 'National Contender',
-    description: 'Elite tier reserved for persistent Players completing major Special Quests.',
-    minScore: 1400,
+    description: 'Levels 101–125 · 3,000 EXP per level · +850 EXP Daily Quest Bonus.',
+    minLevel: 101,
+    maxLevel: 125,
+    expPerLevel: 3000,
+    dailyQuestBonusExp: 850,
     color: '#FACC15',
   },
   {
     rank: 'S-RANK',
     title: 'Sovereign Apex',
-    description: 'Transcendent Hunter standing beyond standard System classification.',
-    minScore: 2200,
+    description: 'Levels 126+ · 3,500 EXP per level · +1,000 EXP Daily Quest Bonus.',
+    minLevel: 126,
+    maxLevel: null,
+    expPerLevel: 3500,
+    dailyQuestBonusExp: 1000,
     color: '#A855F7',
   },
 ];
 
-export function computeHunterRankScore(status: {
-  completedQuestsCount: number;
-  highestStreak: number;
-  totalPushups: number;
-  totalRunningKm: number;
-  achievementsCount: number;
-  jobChangeCompleted: boolean;
-}): number {
-  return Math.round(
-    status.completedQuestsCount * 45 +
-      status.highestStreak * 20 +
-      status.achievementsCount * 60 +
-      Math.min(400, Math.floor(status.totalPushups / 10)) +
-      Math.min(400, Math.floor(status.totalRunningKm * 8)) +
-      (status.jobChangeCompleted ? 350 : 0)
-  );
-}
-
-export function getHunterRankForScore(score: number): RankTier {
+export function getHunterRankForLevel(level: number): RankTier {
+  const safeLevel = Math.max(1, Math.floor(level));
   let current = HUNTER_RANKS[0];
   for (const tier of HUNTER_RANKS) {
-    if (score >= tier.minScore) {
+    if (safeLevel >= tier.minLevel) {
       current = tier;
     }
   }
@@ -312,13 +313,6 @@ export const TITLES_CATALOG: TitleDefinition[] = [
     name: 'Iron Body',
     description: 'Forged foundational resilience through relentless upper-body reps.',
     conditionLabel: 'Complete 1,000 lifetime Push-Ups',
-    rarity: 'Rare',
-  },
-  {
-    id: 'wolf_slayer',
-    name: 'Gate Runner',
-    description: 'Covered vast terrain with unwavering cardiovascular endurance.',
-    conditionLabel: 'Reach 50 km lifetime Running',
     rarity: 'Rare',
   },
   {
@@ -399,14 +393,6 @@ export const ACHIEVEMENTS_CATALOG: AchievementDefinition[] = [
     hidden: true,
   },
   {
-    id: 'running_50km',
-    name: 'Phantom Stride',
-    description: 'Hidden Milestone: Covered 50 km of lifetime Running.',
-    xpReward: 300,
-    goldReward: 500,
-    hidden: true,
-  },
-  {
     id: 'quests_30',
     name: 'Relentless Sovereign',
     description: 'Hidden Milestone: Completed 30 Daily Quests.',
@@ -447,12 +433,12 @@ export const SKILLS_CATALOG: SkillDefinition[] = [
   {
     id: 'sprint',
     name: 'Sprint',
-    description: 'Channel focused breathing to sustain brisk pace intervals during conditioning.',
+    description: 'Channel focused breathing to sustain explosive tempo during high-rep sets.',
     category: 'Active',
     unlockLevel: 1,
     upgradeGoldBase: 120,
     maxLevel: 5,
-    effectNote: 'Visual System Skill · Running pacing cue',
+    effectNote: 'Visual System Skill · Explosive conditioning tempo',
   },
   {
     id: 'vitality_surge',
@@ -650,7 +636,6 @@ export interface MainQuestTemplate {
   description: string;
   targetMetric:
     | 'totalPushups'
-    | 'totalRunningKm'
     | 'totalSquats'
     | 'totalPlankSeconds'
     | 'totalPullups'
@@ -669,15 +654,6 @@ export const MAIN_QUEST_TEMPLATES: MainQuestTemplate[] = [
     targetValue: 1000,
     xpReward: 400,
     goldReward: 500,
-  },
-  {
-    key: 'main_50km_running',
-    title: 'ENDURANCE FOUNDATION: 50 KM',
-    description: 'Accumulate 50 kilometres of running or brisk interval distance across your Player career.',
-    targetMetric: 'totalRunningKm',
-    targetValue: 50,
-    xpReward: 450,
-    goldReward: 550,
   },
   {
     key: 'main_1000_squats',

@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import { AlertTriangle, Check, ChevronRight, ShieldAlert, Sparkles } from 'lucide-react';
 import { SystemFrame } from './SystemFrame';
 import { soundEngine } from '../lib/sound';
-import { computeAdaptiveTargets } from '../shared/systemData';
 
 interface AuthGateProps {
   onSignIn: () => Promise<void>;
@@ -109,7 +108,7 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
   // Safe initial fitness assessment (sub-maximal comfort estimates)
   const [pushupCap, setPushupCap] = useState(15);
   const [squatCap, setSquatCap] = useState(25);
-  const [runCap, setRunCap] = useState(2);
+  const [situpCap, setSitupCap] = useState(20);
   const [plankCap, setPlankCap] = useState(45);
 
   useEffect(() => {
@@ -132,18 +131,6 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
     const t = window.setTimeout(() => setStep('intake'), 1800);
     return () => window.clearTimeout(t);
   }, [step]);
-
-  const previewTargets = computeAdaptiveTargets({
-    experienceLevel,
-    level: 1,
-    capabilities: {
-      pushups: pushupCap,
-      squats: squatCap,
-      running: runCap,
-      plank: plankCap,
-    },
-    limitations,
-  });
 
   const toggleEquipment = (item: string) => {
     setEquipment((prev) =>
@@ -287,7 +274,7 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
                   exerciseCapabilities: {
                     pushups: pushupCap,
                     squats: squatCap,
-                    running: runCap,
+                    situps: situpCap,
                     plank: plankCap,
                   },
                   limitations,
@@ -380,7 +367,7 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
               <div>
                 <label className="block text-xs font-medium text-[#94A3B8]">Available Equipment</label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {['Bodyweight Only', 'Pull-Up Bar', 'Running Shoes / Track', 'Gym Access', 'Resistance Bands'].map((eq) => {
+                  {['Bodyweight Only', 'Pull-Up Bar', 'Gym Access', 'Resistance Bands', 'Exercise Mat'].map((eq) => {
                     const active = equipment.includes(eq);
                     return (
                       <button
@@ -430,14 +417,13 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-[#94A3B8]">Run / Walk (km)</label>
+                    <label className="block text-xs text-[#94A3B8]">Sit-Ups / day</label>
                     <input
                       type="number"
-                      min={0.5}
-                      max={10}
-                      step="0.5"
-                      value={runCap}
-                      onChange={(e) => setRunCap(Number(e.target.value))}
+                      min={5}
+                      max={100}
+                      value={situpCap}
+                      onChange={(e) => setSitupCap(Number(e.target.value))}
                       className="mt-1 w-full border border-[#2879B7]/40 bg-[#050A13] px-2.5 py-2 font-mono-tabular text-sm text-[#F8FAFC]"
                     />
                   </div>
@@ -455,7 +441,7 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-[#94A3B8]">
-                  Calibrated Starting Targets Preview: Push-Ups <span className="font-mono-tabular text-[#67E8F9]">{previewTargets.pushups}</span> · Squats <span className="font-mono-tabular text-[#67E8F9]">{previewTargets.squats}</span> · Running <span className="font-mono-tabular text-[#67E8F9]">{previewTargets.running} km</span> · Plank <span className="font-mono-tabular text-[#67E8F9]">{previewTargets.plank}s</span>
+                  Daily Quest Targets: Push-Ups <span className="font-mono-tabular text-[#67E8F9]">100</span> · Sit-Ups <span className="font-mono-tabular text-[#67E8F9]">100</span> · Squats <span className="font-mono-tabular text-[#67E8F9]">100</span> · Lunges <span className="font-mono-tabular text-[#67E8F9]">50</span> · Pull-Ups <span className="font-mono-tabular text-[#67E8F9]">25</span> · Plank <span className="font-mono-tabular text-[#67E8F9]">3×45s</span> · Superman <span className="font-mono-tabular text-[#67E8F9]">3×30s</span>
                 </p>
               </div>
 
