@@ -1,0 +1,8 @@
+{
+  "name": "THE SYSTEM",
+  "description": "Solo Leveling-inspired Player development and adaptive workout gamification system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
