@@ -30,11 +30,12 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
 
-      - name: Configure Capacitor Android project & App Icons
+      - name: Configure Capacitor Android project, System Bars & App Icons
         run: |
-          npm install --no-save --legacy-peer-deps @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 @capacitor/assets@^4
-          node -e "const fs=require('fs'); fs.writeFileSync('capacitor.config.json', JSON.stringify({ appId: 'com.thesystem.player', appName: 'THE SYSTEM', webDir: 'dist', server: { androidScheme: 'https' } }, null, 2));"
+          npm install --no-save --legacy-peer-deps @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 @capacitor/status-bar@^7 @capacitor/assets@^4
+          node -e "const fs=require('fs'); fs.writeFileSync('capacitor.config.json', JSON.stringify({ appId: 'com.thesystem.player', appName: 'THE SYSTEM', webDir: 'dist', server: { androidScheme: 'https' }, plugins: { StatusBar: { overlaysWebView: false, style: 'DARK', backgroundColor: '#050A13' } } }, null, 2));"
           npx cap add android
+          node .github/scripts/configure-android-bars.cjs
           npx capacitor-assets generate --android --iconBackgroundColor '#000000' --splashBackgroundColor '#000000'
           npx cap sync android
 

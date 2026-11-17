@@ -12,7 +12,7 @@ interface AuthGateProps {
 
 export function AuthGate({ onSignIn, loading, error }: AuthGateProps) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050A13] p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050A13] p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]">
       <img
         src="/src/assets/images/dungeon_gate_bg_1794898192546.jpg"
         alt="Blue mana dungeon gate"
@@ -139,7 +139,7 @@ export function AwakeningFlow({ defaultName, onComplete, submitting, error }: Aw
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#050A13] p-4 py-10 system-grid-bg">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#050A13] p-4 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))] system-grid-bg">
       <div className="w-full max-w-2xl">
         {step === 'boot' && (
           <SystemFrame scanBeam className="p-8 md:p-12">

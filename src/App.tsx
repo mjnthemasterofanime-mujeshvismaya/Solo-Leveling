@@ -121,6 +121,27 @@ export default function App() {
   }, [applyNewState]);
 
   useEffect(() => {
+    const win = window as unknown as {
+      Capacitor?: {
+        isNativePlatform?: () => boolean;
+        Plugins?: {
+          StatusBar?: {
+            setOverlaysWebView?: (opts: { overlay: boolean }) => Promise<void>;
+            setBackgroundColor?: (opts: { color: string }) => Promise<void>;
+            setStyle?: (opts: { style: string }) => Promise<void>;
+          };
+        };
+      };
+    };
+    const statusBar = win.Capacitor?.Plugins?.StatusBar;
+    if (win.Capacitor?.isNativePlatform?.() && statusBar) {
+      statusBar.setOverlaysWebView?.({ overlay: false }).catch(() => {});
+      statusBar.setBackgroundColor?.({ color: '#050A13' }).catch(() => {});
+      statusBar.setStyle?.({ style: 'DARK' }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     let unsub: (() => void) | undefined;
     let active = true;
 
@@ -285,9 +306,10 @@ export default function App() {
   const unreadCount = state.notifications.filter((n) => !n.readStatus).length;
 
   return (
-    <div className="min-h-screen bg-[#050A13] text-[#F8FAFC] system-grid-bg pb-20 lg:pb-10">
-      {/* Desktop 3-Zone Top Navigation Bar */}
-      <header className="sticky top-0 z-30 border-b border-[#2879B7]/40 bg-[#050A13]/90 backdrop-blur-md">
+    <div className="min-h-screen bg-[#050A13] text-[#F8FAFC] flex flex-col justify-center lg:block">
+      <div className="flex h-[min(100dvh,calc(100vw*2105/1080))] w-full flex-col overflow-hidden bg-[#050A13] system-grid-bg lg:block lg:h-auto lg:min-h-screen lg:overflow-visible lg:pb-10">
+        {/* Desktop 3-Zone Top Navigation Bar */}
+        <header className="shrink-0 z-30 border-b border-[#2879B7]/40 bg-[#050A13]/95 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:sticky lg:top-0">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-8 px-4 sm:px-6">
           {/* Zone 1: Single-element Brand Wordmark */}
           <button
@@ -341,8 +363,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Layout: Desktop Left Sidebar + Content Viewport */}
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 pt-6 sm:px-6">
+        {/* Main Content Layout: Desktop Left Sidebar + Content Viewport */}
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6 lg:mx-auto lg:max-w-7xl lg:flex-row lg:gap-6 lg:overflow-visible lg:pt-6 lg:pb-0">
         <aside className="hidden lg:block w-56 shrink-0">
           <SystemFrame className="sticky top-20 p-3">
             <div className="space-y-1">
@@ -561,8 +583,8 @@ export default function App() {
         </main>
       </div>
 
-      {/* Mobile Compact Bottom Navigation (<= 15% height, >= 44px touch targets) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#2879B7]/45 bg-[#050A13]/95 backdrop-blur-md lg:hidden">
+        {/* Mobile Compact Bottom Navigation (<= 15% height, >= 44px touch targets) */}
+        <nav className="shrink-0 z-30 border-t border-[#2879B7]/45 bg-[#050A13]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
         <div className="grid h-14 grid-cols-5 items-center">
           {(
             [
@@ -610,7 +632,7 @@ export default function App() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-end bg-black/75 backdrop-blur-sm lg:hidden"
           >
-            <SystemFrame className="w-full p-5 pb-8">
+            <SystemFrame className="w-full p-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between border-b border-[#2879B7]/35 pb-3">
                 <span className="font-display text-sm font-bold tracking-wider text-[#67E8F9]">
                   SYSTEM MENU
@@ -716,6 +738,7 @@ export default function App() {
       />
 
       <OfflineIndicator />
+      </div>
     </div>
   );
 }

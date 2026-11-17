@@ -19,7 +19,6 @@
     background-color: var(--sys-bg);
     color: #F8FAFC;
     overflow-x: hidden;
-    padding-bottom: env(safe-area-inset-bottom);
   }
 
   h1, h2, h3, .font-display {
