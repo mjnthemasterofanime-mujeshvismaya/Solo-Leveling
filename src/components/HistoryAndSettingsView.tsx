@@ -4,6 +4,7 @@ import { FullPlayerState } from '../types/system';
 import { SystemFrame } from './SystemFrame';
 import { SYSTEM_THEMES } from '../shared/systemData';
 import { soundEngine } from '../lib/sound';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HistoryViewProps {
   state: FullPlayerState;
@@ -191,7 +192,8 @@ export function SettingsView({ state, busy, onSaveSettings, onSignOut }: Setting
               Configure Player profile, audio/visual preferences, and timezone.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <PWAInstallButton />
             <button
               type="button"
               onClick={handleExportJson}

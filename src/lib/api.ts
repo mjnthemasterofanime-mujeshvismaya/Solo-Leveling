@@ -47,13 +47,15 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export async function apiRequest<T = FullPlayerState>(
   path: string,
   method: 'GET' | 'POST' = 'GET',
   body?: unknown
 ): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

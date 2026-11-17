@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies & build web bundle
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL || 'https://ais-pre-3okncbv6ia3tntzicf3xtz-880913612055.asia-northeast1.run.app' }}
+        run: |
+          npm install
+          npm run build
+
+      - name: Configure Capacitor Android project
+        env:
+          APP_URL: ${{ vars.API_BASE_URL || 'https://ais-pre-3okncbv6ia3tntzicf3xtz-880913612055.asia-northeast1.run.app' }}
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "THE SYSTEM" com.thesystem.player --web-dir dist
+          node -e "const fs=require('fs'); fs.writeFileSync('capacitor.config.json', JSON.stringify({ appId: 'com.thesystem.player', appName: 'THE SYSTEM', webDir: 'dist', server: { url: process.env.APP_URL, cleartext: false } }, null, 2));"
+          npx cap add android
+          npx cap sync android
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: THE-SYSTEM-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk

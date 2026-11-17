@@ -34,6 +34,24 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (
+      origin &&
+      (origin.startsWith('capacitor://') ||
+        origin === 'http://localhost' ||
+        origin === 'https://localhost')
+    ) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+      }
+    }
+    next();
+  });
+
   app.use(express.json());
 
   app.get('/api/health', (_req, res) => {

@@ -37,6 +37,7 @@ import { SkillsView, TitlesAchievementsView } from './components/SkillsAndTitles
 import { HistoryView, SettingsView } from './components/HistoryAndSettingsView';
 import { SystemNotificationOverlay } from './components/SystemNotificationOverlay';
 import { SystemFrame } from './components/SystemFrame';
+import { OfflineIndicator, PWAInstallButton } from './components/PWAInstallButton';
 
 const ALL_NAV_ITEMS: Array<{ id: NavSection; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -341,6 +342,9 @@ export default function App() {
                 );
               })}
             </div>
+            <div className="mt-4 border-t border-[#2879B7]/30 pt-3">
+              <PWAInstallButton compact />
+            </div>
           </SystemFrame>
         </aside>
 
@@ -615,6 +619,9 @@ export default function App() {
                   );
                 })}
               </div>
+              <div className="mt-4 border-t border-[#2879B7]/30 pt-3">
+                <PWAInstallButton compact />
+              </div>
             </SystemFrame>
           </motion.div>
         )}
@@ -679,6 +686,8 @@ export default function App() {
           runAction(() => apiRequest<FullPlayerState>('/api/player/notifications/read', 'POST', {}))
         }
       />
+
+      <OfflineIndicator />
     </div>
   );
 }
