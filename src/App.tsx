@@ -23,6 +23,7 @@ import {
   enqueueOfflineProgress,
   flushOfflineProgressQueue,
   getOfflineQueue,
+  isStandaloneLocalMode,
 } from './lib/api';
 import { FullPlayerState, NavSection, SystemNotification } from './types/system';
 import { DifficultyMode, SYSTEM_THEMES } from './shared/systemData';
@@ -54,6 +55,7 @@ const ALL_NAV_ITEMS: Array<{ id: NavSection; label: string; icon: React.Componen
 
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [standaloneMode, setStandaloneMode] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -119,29 +121,46 @@ export default function App() {
   }, [applyNewState]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
-      setAuthReady(true);
-      if (user) {
+    let unsub: (() => void) | undefined;
+    let active = true;
+
+    isStandaloneLocalMode().then((isStandalone) => {
+      if (!active) return;
+      if (isStandalone) {
+        setStandaloneMode(true);
+        setAuthReady(true);
         loadPlayerState();
-      } else {
-        setState(null);
-        lastLevelRef.current = null;
-        lastSeenNotifId.current = 0;
+        return;
       }
+
+      unsub = onAuthStateChanged(auth, (user) => {
+        setFirebaseUser(user);
+        setAuthReady(true);
+        if (user) {
+          loadPlayerState();
+        } else {
+          setState(null);
+          lastLevelRef.current = null;
+          lastSeenNotifId.current = 0;
+        }
+      });
     });
-    return () => unsub();
+
+    return () => {
+      active = false;
+      unsub?.();
+    };
   }, [loadPlayerState]);
 
   useEffect(() => {
     const onOnline = () => {
-      if (firebaseUser) {
+      if (firebaseUser || standaloneMode) {
         loadPlayerState();
       }
     };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-  }, [firebaseUser, loadPlayerState]);
+  }, [firebaseUser, standaloneMode, loadPlayerState]);
 
   const handleSignIn = async () => {
     setAuthLoading(true);
@@ -156,6 +175,10 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    if (standaloneMode) {
+      setSection('dashboard');
+      return;
+    }
     await signOut(auth);
     setState(null);
     setSection('dashboard');
@@ -175,7 +198,7 @@ export default function App() {
   };
 
   const handleLogProgress = async (questId: number, missionId: number, amount: number) => {
-    if (!navigator.onLine) {
+    if (!standaloneMode && !navigator.onLine) {
       enqueueOfflineProgress({ questId, missionId, amount, queuedAt: Date.now() });
       setOfflineCount(getOfflineQueue().length);
       return;
@@ -198,7 +221,7 @@ export default function App() {
     );
   }
 
-  if (!firebaseUser) {
+  if (!firebaseUser && !standaloneMode) {
     return <AuthGate onSignIn={handleSignIn} loading={authLoading} error={authError} />;
   }
 
@@ -209,7 +232,9 @@ export default function App() {
           <p className="font-mono-tabular text-sm tracking-widest text-[#67E8F9]">
             [SYNCHRONIZING PLAYER DATA...]
           </p>
-          <p className="mt-2 text-xs text-[#94A3B8]">Connecting to Cloud SQL PostgreSQL core</p>
+          <p className="mt-2 text-xs text-[#94A3B8]">
+            {standaloneMode ? 'Initializing on-device System storage' : 'Connecting to Cloud SQL PostgreSQL core'}
+          </p>
         </SystemFrame>
       </div>
     );
@@ -229,13 +254,15 @@ export default function App() {
             >
               RETRY CONNECTION
             </button>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="min-h-[44px] border border-[#2879B7]/40 px-4 py-2 text-xs text-[#94A3B8]"
-            >
-              Sign Out
-            </button>
+            {!standaloneMode && (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="min-h-[44px] border border-[#2879B7]/40 px-4 py-2 text-xs text-[#94A3B8]"
+              >
+                Sign Out
+              </button>
+            )}
           </div>
         </SystemFrame>
       </div>
@@ -245,7 +272,7 @@ export default function App() {
   if (!state.profile.onboardingCompleted) {
     return (
       <AwakeningFlow
-        defaultName={firebaseUser.displayName || state.profile.username}
+        defaultName={firebaseUser?.displayName || state.profile.username}
         submitting={busy}
         error={stateError}
         onComplete={(payload) =>

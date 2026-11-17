@@ -1,5 +1,6 @@
 import { auth } from './firebase';
 import { FullPlayerState } from '../types/system';
+import { handleLocalApiRequest } from './localEngine';
 
 const OFFLINE_QUEUE_KEY = 'the_system_offline_progress_queue';
 
@@ -8,6 +9,48 @@ export interface QueuedProgressItem {
   missionId: number;
   amount: number;
   queuedAt: number;
+}
+
+export function isCapacitorNativeApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  const win = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
+  if (win.Capacitor?.isNativePlatform?.()) return true;
+  if (window.location.protocol === 'capacitor:') return true;
+  if (window.location.hostname === 'localhost' && window.location.port === '') return true;
+  return false;
+}
+
+let remoteApiHealthy: boolean | null = null;
+
+export async function isStandaloneLocalMode(): Promise<boolean> {
+  if (!isCapacitorNativeApp()) return false;
+  if (remoteApiHealthy === true) return false;
+  if (remoteApiHealthy === false) return true;
+
+  const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  if (!base) {
+    remoteApiHealthy = false;
+    return true;
+  }
+
+  try {
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 3500);
+    const res = await fetch(`${base}/api/health`, { signal: ctrl.signal });
+    window.clearTimeout(timer);
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (json && json.status === 'ok') {
+        remoteApiHealthy = true;
+        return false;
+      }
+    }
+  } catch {
+    // Remote server unreachable or blocked
+  }
+
+  remoteApiHealthy = false;
+  return true;
 }
 
 export function getOfflineQueue(): QueuedProgressItem[] {
@@ -54,6 +97,10 @@ export async function apiRequest<T = FullPlayerState>(
   method: 'GET' | 'POST' = 'GET',
   body?: unknown
 ): Promise<T> {
+  if (await isStandaloneLocalMode()) {
+    return handleLocalApiRequest<T>(path, method, body);
+  }
+
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}${path}`, {
     method,
@@ -69,7 +116,11 @@ export async function apiRequest<T = FullPlayerState>(
 
 export async function flushOfflineProgressQueue(): Promise<FullPlayerState | null> {
   const queue = getOfflineQueue();
-  if (queue.length === 0 || !navigator.onLine || !auth.currentUser) {
+  if (queue.length === 0) {
+    return null;
+  }
+  const standalone = await isStandaloneLocalMode();
+  if (!standalone && (!navigator.onLine || !auth.currentUser)) {
     return null;
   }
   let latestState: FullPlayerState | null = null;
